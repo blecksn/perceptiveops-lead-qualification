@@ -1,0 +1,12 @@
+{
+  "type": "object",
+  "required": ["score", "segment", "confidence", "qualification_reason", "followup_angle"],
+  "properties": {
+    "score": { "type": "integer", "minimum": 0, "maximum": 100 },
+    "segment": { "type": "string", "enum": ["qualified", "nurture", "manual_review"] },
+    "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+    "qualification_reason": { "type": "string" },
+    "followup_angle": { "type": "string" }
+  },
+  "additionalProperties": false
+}
