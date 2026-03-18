@@ -2,7 +2,7 @@
 
 **Owner:** PerceptiveOps Projects Documentation
 **Last Updated:** 2026-03-18
-**Key Links:** Asana task `https://app.asana.com/1/1198984568520915/project/1213727021120023/task/1213726995378042` | Local artifacts in `/Users/bleckcorp/Documents/workflows/perceptiveops-lead-qualification`
+**Key Links:** Asana task `https://app.asana.com/1/1198984568520915/project/1213727021120023/task/1213726995378042` | GitHub repo `https://github.com/blecksn/perceptiveops-lead-qualification` | One-pager `https://github.com/blecksn/perceptiveops-lead-qualification/blob/main/one-pager.md`
 
 ---
 
