@@ -1,0 +1,27 @@
+{
+  "airtable": [
+    {
+      "airtable_record_id": "rec_existing_001",
+      "dedup_key": "ivy@example.com|website",
+      "email": "ivy@example.com",
+      "source_channel": "website",
+      "status": "qualified"
+    }
+  ],
+  "hubspot": [
+    {
+      "hubspot_contact_id": "hs_existing_001",
+      "dedup_key": "ivy@example.com|website",
+      "email": "ivy@example.com",
+      "source_channel": "website",
+      "phone": "+1 555 010 2001"
+    },
+    {
+      "hubspot_contact_id": "hs_existing_002",
+      "dedup_key": "mariana@example.com|website",
+      "email": "mariana@example.com",
+      "source_channel": "website",
+      "phone": "+1 555 010 2010"
+    }
+  ]
+}

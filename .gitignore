@@ -1,1 +1,3 @@
 .DS_Store
+.env
+artifacts/verification-report.json

@@ -1,7 +1,7 @@
 # Lead Qualification & Nurturing Automation
 
 **Owner:** PerceptiveOps Projects Documentation
-**Last Updated:** 2026-03-18
+**Last Updated:** 2026-04-02
 **Key Links:** Asana task `https://app.asana.com/1/1198984568520915/project/1213727021120023/task/1213726995378042` | GitHub repo `https://github.com/blecksn/perceptiveops-lead-qualification` | One-pager `https://github.com/blecksn/perceptiveops-lead-qualification/blob/main/one-pager.md`
 
 ---
@@ -10,16 +10,16 @@
 
 **Who it is for:** Revenue teams in real estate and other service businesses that rely on inbound lead forms and manual follow-up.
 **Problem:** New leads arrive at unpredictable times, sales reps respond inconsistently, and poor-fit leads consume the same effort as high-intent prospects.
-**What it does:** The automation captures inbound form submissions, scores lead quality with GPT-4, routes each lead into HubSpot, logs the decision trail in Airtable, and drafts personalized follow-up for the rep.
+**What it does:** The automation captures inbound form submissions, scores lead quality with GPT-4, routes each lead into HubSpot, logs the decision trail in Airtable, and drafts personalized follow-up for the rep. The implementation pack includes a Google Form scaffold, webhook-forwarding Apps Script, workflow blueprint, and local verifier.
 **Success looks like:** Every qualified lead is routed within 5 minutes, duplicates are suppressed, low-confidence AI outputs are flagged for review, and reps can demonstrate a repeatable follow-up process using sample data.
 
 ## How It Works
 
-A prospect submits a lead form. The workflow validates the payload, checks whether the lead already exists, enriches and scores the lead with AI, then writes the result to HubSpot and Airtable. Qualified leads trigger a personalized first-touch draft, while uncertain or incomplete leads are sent to a review queue so the team can correct the record before outreach.
+A prospect submits a lead form. The workflow validates the payload, checks whether the lead already exists, enriches and scores the lead with AI, then writes the result to HubSpot and Airtable. Qualified leads trigger a personalized first-touch draft, while uncertain or incomplete leads are sent to a review queue so the team can correct the record before outreach. For demos, the pack can create a Google Form and forward submissions to the webhook through Apps Script.
 
 ## How to Use It
 
-1. Submit a lead through the approved intake form with name, email, phone, property interest, budget, and message.
+1. Create the intake form from the included Apps Script or form spec, then submit a fake lead with name, email, phone, property interest, budget, and message.
 2. Wait for the lead to appear in Airtable and HubSpot with a status of `qualified`, `nurture`, `manual_review`, or `duplicate`.
 3. Open the Airtable pipeline view to review score rationale, assignment status, and generated follow-up content.
 4. If anything looks wrong, inspect the `manual_review_reason` field and replay only after the record is corrected.

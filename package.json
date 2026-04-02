@@ -1,0 +1,10 @@
+{
+  "name": "perceptiveops-lead-qualification",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Implementation-ready lead qualification automation pack with a local dry-run verifier.",
+  "scripts": {
+    "verify": "node scripts/lead_workflow_cli.js fixtures/verification-cases.json --existing fixtures/mock-existing-leads.json --output artifacts/verification-report.json --summary",
+    "verify:sample": "node scripts/lead_workflow_cli.js fixtures/test-leads.json --existing fixtures/mock-existing-leads.json --summary"
+  }
+}

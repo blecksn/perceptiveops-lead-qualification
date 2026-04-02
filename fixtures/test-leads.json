@@ -1,0 +1,122 @@
+[
+  {
+    "submission_id": "lead-001",
+    "submitted_at": "2026-03-18T09:00:00Z",
+    "full_name": "Jordan Reed",
+    "email": "jordan@example.com",
+    "phone": "+1 555 010 1001",
+    "property_type": "3-bedroom home",
+    "budget_range": "$900k-$1.1m",
+    "timeline": "within 30 days",
+    "message": "My family is relocating for work next month and we want to schedule viewings this week for move-in ready homes near good schools.",
+    "source_channel": "website"
+  },
+  {
+    "submission_id": "lead-002",
+    "submitted_at": "2026-03-18T09:08:00Z",
+    "full_name": "Tessa Brooks",
+    "email": "tessa@example.com",
+    "phone": "+1 555 010 1002",
+    "property_type": "condo",
+    "budget_range": "$450k-$600k",
+    "timeline": "3-6 months",
+    "message": "I am exploring condo options for later this year and want a sense of neighborhoods, fees, and financing considerations before I commit.",
+    "source_channel": "website"
+  },
+  {
+    "submission_id": "lead-003",
+    "submitted_at": "2026-03-18T09:12:00Z",
+    "full_name": "Ivy Stone",
+    "email": "ivy@example.com",
+    "phone": "+1 555 010 2001",
+    "property_type": "townhome",
+    "budget_range": "$700k-$820k",
+    "timeline": "within 60 days",
+    "message": "Checking in again on townhomes in the same area we discussed earlier this week.",
+    "source_channel": "website"
+  },
+  {
+    "submission_id": "lead-004",
+    "submitted_at": "2026-03-18T09:20:00Z",
+    "full_name": "Jordan Reed",
+    "email": "jordan@example.com",
+    "phone": "+1 555 010 1001",
+    "property_type": "3-bedroom home",
+    "budget_range": "$900k-$1.1m",
+    "timeline": "within 30 days",
+    "message": "Resubmitting in case the first form did not go through. Still hoping to view homes this week.",
+    "source_channel": "website"
+  },
+  {
+    "submission_id": "lead-005",
+    "submitted_at": "2026-03-18T09:28:00Z",
+    "full_name": "Nina Patel",
+    "email": "",
+    "phone": "+1 555 010 1005",
+    "property_type": "single-family home",
+    "budget_range": "$650k-$750k",
+    "timeline": "within 90 days",
+    "message": "Looking for a family-friendly neighborhood and hoping to connect with someone this week.",
+    "source_channel": "website"
+  },
+  {
+    "submission_id": "lead-006",
+    "submitted_at": "2026-03-18T09:35:00Z",
+    "full_name": "Leo Grant",
+    "email": "leo@example.com",
+    "phone": "",
+    "property_type": "luxury property",
+    "budget_range": "",
+    "timeline": "",
+    "message": "Interested in something exceptional. Send options.",
+    "source_channel": "website"
+  },
+  {
+    "submission_id": "lead-007",
+    "submitted_at": "2026-03-18T09:42:00Z",
+    "full_name": "Mariana Silva",
+    "email": "mariana@example.com",
+    "phone": "+1 555 010 7777",
+    "property_type": "investment property",
+    "budget_range": "$1.2m-$1.5m",
+    "timeline": "within 45 days",
+    "message": "I am evaluating a short list of investment properties and want an advisor who can help compare cap rates and tenant demand quickly.",
+    "source_channel": "partner-referral"
+  },
+  {
+    "submission_id": "lead-008",
+    "submitted_at": "2026-03-18T09:50:00Z",
+    "full_name": "Omar Delgado",
+    "email": "omar@example.com",
+    "phone": "+1 555 010 1008",
+    "property_type": "starter home",
+    "budget_range": "$350k-$420k",
+    "timeline": "within 120 days",
+    "message": "I am a first-time buyer and need help understanding tradeoffs across a few neighborhoods before I get serious.",
+    "source_channel": "instagram"
+  },
+  {
+    "submission_id": "lead-009",
+    "submitted_at": "2026-03-18T10:02:00Z",
+    "full_name": "Priya Shah",
+    "email": "priya@example.com",
+    "phone": "+1 555 010 1009",
+    "property_type": "condo",
+    "budget_range": "$500k-$650k",
+    "timeline": "within 60 days",
+    "message": "",
+    "source_channel": "website"
+  },
+  {
+    "submission_id": "lead-010",
+    "submitted_at": "2026-03-18T10:10:00Z",
+    "full_name": "Caleb Owens",
+    "email": "caleb@example.com",
+    "phone": "+1 555 010 1010",
+    "property_type": "townhome",
+    "budget_range": "$700k-$850k",
+    "timeline": "within 60 days",
+    "message": "We have financing pre-approval and want to shortlist townhomes close to transit before our lease ends in two months.",
+    "source_channel": "website"
+  }
+]

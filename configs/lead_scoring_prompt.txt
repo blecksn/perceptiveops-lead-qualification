@@ -6,9 +6,13 @@ Return strict JSON with these keys:
 - confidence: number 0-1
 - qualification_reason: short string
 - followup_angle: short string
+- draft_message: short first-touch outreach draft for a human rep to review before sending
 
 Rules:
 - Use temperature 0.
 - If required information is missing, return segment=manual_review.
 - Do not guess budget or timeline if absent.
 - Prefer conservative scoring over optimistic scoring.
+- Keep the draft_message between 40 and 90 words.
+- Do not invent facts, discounts, promises, or property inventory.
+- If the lead is manual_review, use the draft_message to request the missing information instead of pitching.

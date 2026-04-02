@@ -1,0 +1,470 @@
+{
+  "name": "PerceptiveOps Lead Qualification",
+  "platform": "n8n",
+  "version": "1.0.0",
+  "objective": "Validate inbound lead form submissions, suppress duplicates, score and draft with AI, upsert HubSpot, and log every decision to Airtable.",
+  "required_env": [
+    "OPENAI_MODEL",
+    "LOW_CONFIDENCE_THRESHOLD",
+    "WEBHOOK_SHARED_SECRET",
+    "HUBSPOT_PRIVATE_APP_TOKEN",
+    "HUBSPOT_PIPELINE_ID",
+    "AIRTABLE_PAT",
+    "AIRTABLE_BASE_ID",
+    "AIRTABLE_TABLE_LEADS"
+  ],
+  "credentials": [
+    {
+      "service": "OpenAI",
+      "usage": "structured scoring and draft generation"
+    },
+    {
+      "service": "HubSpot",
+      "usage": "contact search and upsert"
+    },
+    {
+      "service": "Airtable",
+      "usage": "audit logging and review queues"
+    }
+  ],
+  "paths": {
+    "happy_path": [
+      "Inbound Webhook",
+      "Normalize and Validate",
+      "Lookup Airtable Duplicate",
+      "Lookup HubSpot Duplicate",
+      "Score and Draft Lead",
+      "Validate AI Output",
+      "Upsert HubSpot Contact",
+      "Write Airtable Audit",
+      "Respond Success"
+    ],
+    "duplicate_path": [
+      "Inbound Webhook",
+      "Normalize and Validate",
+      "Lookup Airtable Duplicate",
+      "Lookup HubSpot Duplicate",
+      "Write Duplicate Audit",
+      "Respond Duplicate"
+    ],
+    "manual_review_path": [
+      "Inbound Webhook",
+      "Normalize and Validate",
+      "Score and Draft Lead",
+      "Validate AI Output",
+      "Write Manual Review Audit",
+      "Respond Manual Review"
+    ],
+    "crm_sync_pending_path": [
+      "Inbound Webhook",
+      "Normalize and Validate",
+      "Score and Draft Lead",
+      "Validate AI Output",
+      "Upsert HubSpot Contact",
+      "Write CRM Pending Audit",
+      "Respond CRM Pending"
+    ]
+  },
+  "nodes": [
+    {
+      "id": "webhook",
+      "name": "Inbound Webhook",
+      "type": "Webhook",
+      "n8n_type": "n8n-nodes-base.webhook",
+      "config": {
+        "httpMethod": "POST",
+        "path": "={{ $env.N8N_WEBHOOK_PATH || 'perceptiveops-lead-intake' }}",
+        "authentication": "header",
+        "auth_header_name": "x-webhook-secret",
+        "auth_header_value": "={{ $env.WEBHOOK_SHARED_SECRET }}"
+      },
+      "outputs": [
+        "Normalize and Validate"
+      ]
+    },
+    {
+      "id": "normalize_validate",
+      "name": "Normalize and Validate",
+      "type": "Code",
+      "n8n_type": "n8n-nodes-base.code",
+      "purpose": "Normalize email, phone, and source channel; compute dedup key; mark missing fields before any external call.",
+      "code": [
+        "const payload = $json.body ?? $json;",
+        "const normalizePhone = (value) => {",
+        "  const raw = String(value || '').trim();",
+        "  if (!raw) return '';",
+        "  const digits = raw.replace(/[^\\d]/g, '');",
+        "  return raw.startsWith('+') ? `+${digits}` : digits;",
+        "};",
+        "const collapse = (value) => String(value || '').replace(/\\s+/g, ' ').trim();",
+        "const slugify = (value) => collapse(value).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');",
+        "const required = ['submission_id', 'submitted_at', 'full_name', 'email', 'message', 'source_channel'];",
+        "const validation_flags = required.filter((field) => !collapse(payload[field])).map((field) => `missing_${field}`);",
+        "const normalized = {",
+        "  submission_id: collapse(payload.submission_id),",
+        "  submitted_at: collapse(payload.submitted_at),",
+        "  normalized_contact: {",
+        "    full_name: collapse(payload.full_name),",
+        "    email: collapse(payload.email).toLowerCase(),",
+        "    phone: normalizePhone(payload.phone),",
+        "    property_type: collapse(payload.property_type),",
+        "    budget_range: collapse(payload.budget_range),",
+        "    timeline: collapse(payload.timeline),",
+        "    message: collapse(payload.message),",
+        "    source_channel: slugify(payload.source_channel)",
+        "  }",
+        "};",
+        "normalized.dedup_key = `${normalized.normalized_contact.email}|${normalized.normalized_contact.source_channel}`;",
+        "normalized.validation_flags = validation_flags;",
+        "normalized.has_missing_required = validation_flags.length > 0;",
+        "return [{ json: normalized }];"
+      ],
+      "outputs": [
+        "Lookup Airtable Duplicate",
+        "Score and Draft Lead"
+      ],
+      "routing_notes": "If `has_missing_required` is true, skip duplicate lookups and go directly to the manual review branch."
+    },
+    {
+      "id": "lookup_airtable_duplicate",
+      "name": "Lookup Airtable Duplicate",
+      "type": "HTTP Request",
+      "n8n_type": "n8n-nodes-base.httpRequest",
+      "config": {
+        "method": "GET",
+        "url": "=https://api.airtable.com/v0/{{$env.AIRTABLE_BASE_ID}}/{{$env.AIRTABLE_TABLE_LEADS}}",
+        "headers": {
+          "Authorization": "=Bearer {{$env.AIRTABLE_PAT}}"
+        },
+        "query": {
+          "filterByFormula": "=AND({dedup_key}='{{$json.dedup_key}}',{status}!='duplicate')",
+          "maxRecords": "1"
+        }
+      },
+      "outputs": [
+        "Lookup HubSpot Duplicate"
+      ]
+    },
+    {
+      "id": "lookup_hubspot_duplicate",
+      "name": "Lookup HubSpot Duplicate",
+      "type": "HTTP Request",
+      "n8n_type": "n8n-nodes-base.httpRequest",
+      "config": {
+        "method": "POST",
+        "url": "https://api.hubapi.com/crm/v3/objects/contacts/search",
+        "headers": {
+          "Authorization": "=Bearer {{$env.HUBSPOT_PRIVATE_APP_TOKEN}}",
+          "Content-Type": "application/json"
+        },
+        "json_body": {
+          "filterGroups": [
+            {
+              "filters": [
+                {
+                  "propertyName": "dedup_key",
+                  "operator": "EQ",
+                  "value": "={{ $item(0).$node['Normalize and Validate'].json.dedup_key }}"
+                }
+              ]
+            }
+          ],
+          "limit": 1,
+          "properties": [
+            "email",
+            "phone",
+            "dedup_key"
+          ]
+        }
+      },
+      "outputs": [
+        "Dedup Decision"
+      ]
+    },
+    {
+      "id": "dedup_decision",
+      "name": "Dedup Decision",
+      "type": "Code",
+      "n8n_type": "n8n-nodes-base.code",
+      "purpose": "Consolidate Airtable and HubSpot duplicate checks before any AI spend.",
+      "code": [
+        "const normalized = $item(0).$node['Normalize and Validate'].json;",
+        "const airtable = $item(0).$node['Lookup Airtable Duplicate'].json;",
+        "const hubspot = $json;",
+        "const airtableDuplicate = Array.isArray(airtable.records) && airtable.records.length > 0 ? airtable.records[0] : null;",
+        "const hubspotDuplicate = Array.isArray(hubspot.results) && hubspot.results.length > 0 ? hubspot.results[0] : null;",
+        "return [{ json: { ...normalized, duplicate_found: Boolean(airtableDuplicate || hubspotDuplicate), airtable_duplicate: airtableDuplicate, hubspot_duplicate: hubspotDuplicate } }];"
+      ],
+      "outputs": [
+        "Score and Draft Lead",
+        "Write Duplicate Audit"
+      ],
+      "routing_notes": "If `duplicate_found` is true, write duplicate audit and stop. Otherwise continue to AI."
+    },
+    {
+      "id": "score_and_draft",
+      "name": "Score and Draft Lead",
+      "type": "OpenAI",
+      "n8n_type": "n8n-nodes-base.openAi",
+      "purpose": "Call the configured model with the prompt and require JSON matching `configs/lead_score_schema.json`.",
+      "config": {
+        "model": "={{ $env.OPENAI_MODEL }}",
+        "temperature": 0,
+        "system_prompt_file": "configs/lead_scoring_prompt.txt",
+        "schema_file": "configs/lead_score_schema.json",
+        "input_template": {
+          "submission_id": "={{ $json.submission_id }}",
+          "submitted_at": "={{ $json.submitted_at }}",
+          "lead": "={{ $json.normalized_contact }}",
+          "validation_flags": "={{ $json.validation_flags }}"
+        }
+      },
+      "outputs": [
+        "Validate AI Output"
+      ],
+      "routing_notes": "Skip this node when `has_missing_required` or `duplicate_found` is true."
+    },
+    {
+      "id": "validate_ai_output",
+      "name": "Validate AI Output",
+      "type": "Code",
+      "n8n_type": "n8n-nodes-base.code",
+      "purpose": "Reject malformed payloads and low-confidence results before any CRM write.",
+      "code": [
+        "const normalized = $item(0).$node['Normalize and Validate'].json;",
+        "const ai = $json;",
+        "const threshold = Number($env.LOW_CONFIDENCE_THRESHOLD || '0.65');",
+        "const required = ['score', 'segment', 'confidence', 'qualification_reason', 'followup_angle', 'draft_message'];",
+        "const missing = required.filter((field) => ai[field] === undefined || ai[field] === null || ai[field] === '');",
+        "const invalid = missing.length > 0 || !Number.isInteger(ai.score) || ai.score < 0 || ai.score > 100 || !['qualified', 'nurture', 'manual_review'].includes(ai.segment) || typeof ai.confidence !== 'number';",
+        "const reviewRequired = invalid || ai.confidence < threshold || ai.segment === 'manual_review' || normalized.has_missing_required;",
+        "const reason = invalid ? `ai_output_invalid:${missing.join(',')}` : reviewRequired ? 'low_confidence_or_manual_review' : 'ready_for_crm';",
+        "return [{ json: { ...normalized, ai_result: ai, review_required: reviewRequired, ai_validation_reason: reason } }];"
+      ],
+      "outputs": [
+        "Upsert HubSpot Contact",
+        "Write Manual Review Audit"
+      ],
+      "routing_notes": "If `review_required` is true, write manual review audit and stop. Otherwise continue to HubSpot."
+    },
+    {
+      "id": "upsert_hubspot_contact",
+      "name": "Upsert HubSpot Contact",
+      "type": "HTTP Request",
+      "n8n_type": "n8n-nodes-base.httpRequest",
+      "purpose": "Create or update the HubSpot contact with score and qualification metadata.",
+      "config": {
+        "method": "POST",
+        "url": "https://api.hubapi.com/crm/v3/objects/contacts",
+        "continue_on_fail": true,
+        "headers": {
+          "Authorization": "=Bearer {{$env.HUBSPOT_PRIVATE_APP_TOKEN}}",
+          "Content-Type": "application/json"
+        },
+        "json_body": {
+          "properties": {
+            "email": "={{ $json.normalized_contact.email }}",
+            "phone": "={{ $json.normalized_contact.phone }}",
+            "lead_score": "={{ $json.ai_result.score }}",
+            "lead_segment": "={{ $json.ai_result.segment }}",
+            "qualification_reason": "={{ $json.ai_result.qualification_reason }}",
+            "dedup_key": "={{ $json.dedup_key }}",
+            "property_interest": "={{ $json.normalized_contact.property_type }}",
+            "budget_range": "={{ $json.normalized_contact.budget_range }}",
+            "buying_timeline": "={{ $json.normalized_contact.timeline }}",
+            "last_qualification_run_id": "={{ 'run_' + $json.submission_id }}"
+          }
+        }
+      },
+      "outputs": [
+        "Write Airtable Audit",
+        "Write CRM Pending Audit"
+      ],
+      "routing_notes": "On HTTP 429, 5xx, or schema error, route to `Write CRM Pending Audit`."
+    },
+    {
+      "id": "write_airtable_audit",
+      "name": "Write Airtable Audit",
+      "type": "HTTP Request",
+      "n8n_type": "n8n-nodes-base.httpRequest",
+      "config": {
+        "method": "POST",
+        "url": "=https://api.airtable.com/v0/{{$env.AIRTABLE_BASE_ID}}/{{$env.AIRTABLE_TABLE_LEADS}}",
+        "headers": {
+          "Authorization": "=Bearer {{$env.AIRTABLE_PAT}}",
+          "Content-Type": "application/json"
+        },
+        "json_body": {
+          "records": [
+            {
+              "fields": {
+                "submission_id": "={{ $item(0).$node['Normalize and Validate'].json.submission_id }}",
+                "dedup_key": "={{ $item(0).$node['Normalize and Validate'].json.dedup_key }}",
+                "full_name": "={{ $item(0).$node['Normalize and Validate'].json.normalized_contact.full_name }}",
+                "email": "={{ $item(0).$node['Normalize and Validate'].json.normalized_contact.email }}",
+                "phone": "={{ $item(0).$node['Normalize and Validate'].json.normalized_contact.phone }}",
+                "status": "={{ $item(0).$node['Validate AI Output'].json.ai_result.segment }}",
+                "lead_score": "={{ $item(0).$node['Validate AI Output'].json.ai_result.score }}",
+                "qualification_reason": "={{ $item(0).$node['Validate AI Output'].json.ai_result.qualification_reason }}",
+                "personalized_draft": "={{ $item(0).$node['Validate AI Output'].json.ai_result.draft_message }}",
+                "confidence": "={{ $item(0).$node['Validate AI Output'].json.ai_result.confidence }}",
+                "hubspot_sync_status": "synced",
+                "processed_at": "={{ $item(0).$node['Normalize and Validate'].json.submitted_at }}"
+              }
+            }
+          ]
+        }
+      },
+      "outputs": [
+        "Respond Success"
+      ]
+    },
+    {
+      "id": "write_manual_review_audit",
+      "name": "Write Manual Review Audit",
+      "type": "HTTP Request",
+      "n8n_type": "n8n-nodes-base.httpRequest",
+      "config": {
+        "method": "POST",
+        "url": "=https://api.airtable.com/v0/{{$env.AIRTABLE_BASE_ID}}/{{$env.AIRTABLE_TABLE_LEADS}}",
+        "headers": {
+          "Authorization": "=Bearer {{$env.AIRTABLE_PAT}}",
+          "Content-Type": "application/json"
+        },
+        "json_body": {
+          "records": [
+            {
+              "fields": {
+                "submission_id": "={{ $item(0).$node['Normalize and Validate'].json.submission_id }}",
+                "dedup_key": "={{ $item(0).$node['Normalize and Validate'].json.dedup_key }}",
+                "full_name": "={{ $item(0).$node['Normalize and Validate'].json.normalized_contact.full_name }}",
+                "email": "={{ $item(0).$node['Normalize and Validate'].json.normalized_contact.email }}",
+                "status": "manual_review",
+                "manual_review_reason": "={{ $json.ai_validation_reason || $item(0).$node['Normalize and Validate'].json.validation_flags.join(', ') }}",
+                "processed_at": "={{ $item(0).$node['Normalize and Validate'].json.submitted_at }}"
+              }
+            }
+          ]
+        }
+      },
+      "outputs": [
+        "Respond Manual Review"
+      ]
+    },
+    {
+      "id": "write_duplicate_audit",
+      "name": "Write Duplicate Audit",
+      "type": "HTTP Request",
+      "n8n_type": "n8n-nodes-base.httpRequest",
+      "config": {
+        "method": "POST",
+        "url": "=https://api.airtable.com/v0/{{$env.AIRTABLE_BASE_ID}}/{{$env.AIRTABLE_TABLE_LEADS}}",
+        "headers": {
+          "Authorization": "=Bearer {{$env.AIRTABLE_PAT}}",
+          "Content-Type": "application/json"
+        },
+        "json_body": {
+          "records": [
+            {
+              "fields": {
+                "submission_id": "={{ $json.submission_id }}",
+                "dedup_key": "={{ $json.dedup_key }}",
+                "email": "={{ $json.normalized_contact.email }}",
+                "status": "duplicate",
+                "next_action": "Suppress create and preserve prior record.",
+                "processed_at": "={{ $json.submitted_at }}"
+              }
+            }
+          ]
+        }
+      },
+      "outputs": [
+        "Respond Duplicate"
+      ]
+    },
+    {
+      "id": "write_crm_pending_audit",
+      "name": "Write CRM Pending Audit",
+      "type": "HTTP Request",
+      "n8n_type": "n8n-nodes-base.httpRequest",
+      "config": {
+        "method": "POST",
+        "url": "=https://api.airtable.com/v0/{{$env.AIRTABLE_BASE_ID}}/{{$env.AIRTABLE_TABLE_LEADS}}",
+        "headers": {
+          "Authorization": "=Bearer {{$env.AIRTABLE_PAT}}",
+          "Content-Type": "application/json"
+        },
+        "json_body": {
+          "records": [
+            {
+              "fields": {
+                "submission_id": "={{ $item(0).$node['Normalize and Validate'].json.submission_id }}",
+                "dedup_key": "={{ $item(0).$node['Normalize and Validate'].json.dedup_key }}",
+                "email": "={{ $item(0).$node['Normalize and Validate'].json.normalized_contact.email }}",
+                "status": "crm_sync_pending",
+                "hubspot_sync_status": "failed",
+                "next_action": "Retry HubSpot after API or schema issue is fixed.",
+                "processed_at": "={{ $item(0).$node['Normalize and Validate'].json.submitted_at }}"
+              }
+            }
+          ]
+        }
+      },
+      "outputs": [
+        "Respond CRM Pending"
+      ]
+    },
+    {
+      "id": "respond_success",
+      "name": "Respond Success",
+      "type": "Respond to Webhook",
+      "n8n_type": "n8n-nodes-base.respondToWebhook",
+      "response": {
+        "status_code": 200,
+        "body": {
+          "status": "ok",
+          "result": "qualified_or_nurture_logged"
+        }
+      }
+    },
+    {
+      "id": "respond_manual_review",
+      "name": "Respond Manual Review",
+      "type": "Respond to Webhook",
+      "n8n_type": "n8n-nodes-base.respondToWebhook",
+      "response": {
+        "status_code": 202,
+        "body": {
+          "status": "manual_review",
+          "result": "awaiting_human_review"
+        }
+      }
+    },
+    {
+      "id": "respond_duplicate",
+      "name": "Respond Duplicate",
+      "type": "Respond to Webhook",
+      "n8n_type": "n8n-nodes-base.respondToWebhook",
+      "response": {
+        "status_code": 200,
+        "body": {
+          "status": "duplicate",
+          "result": "suppressed"
+        }
+      }
+    },
+    {
+      "id": "respond_crm_pending",
+      "name": "Respond CRM Pending",
+      "type": "Respond to Webhook",
+      "n8n_type": "n8n-nodes-base.respondToWebhook",
+      "response": {
+        "status_code": 202,
+        "body": {
+          "status": "crm_sync_pending",
+          "result": "audit_logged_for_retry"
+        }
+      }
+    }
+  ]
+}
